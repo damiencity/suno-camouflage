@@ -346,20 +346,21 @@
 
         <div class="human-section">
             <h2>Rendre humain ce son</h2>
-            <p class="human-sub">AI Humanizer &#8212; pour passer les d&#233;tecteurs IA (SubmitHub, etc.)</p>
+            <p class="human-sub">AI Humanizer CLEAN &#8212; modifications subliminales (&lt; 0.1%, inaudibles)</p>
 
             <div class="level-selector">
                 <label>M&#233;thode d&#8217;humanisation</label>
                 <div class="level-buttons">
-                    <button class="level-btn human-btn" data-human="tape">01 Tape</button>
-                    <button class="level-btn human-btn" data-human="compress">02 Compress</button>
-                    <button class="level-btn human-btn" data-human="warmth">03 Warmth</button>
-                    <button class="level-btn human-btn" data-human="stereo">04 Stereo</button>
-                    <button class="level-btn human-btn ultra-human" data-human="ultra">05 Ultra</button>
-                    <button class="level-btn human-btn active" data-human="micro">06 Micro</button>
+                    <button class="level-btn human-btn" data-human="dither">01 Dither</button>
+                    <button class="level-btn human-btn" data-human="phase">02 Phase</button>
+                    <button class="level-btn human-btn" data-human="gain">03 Gain</button>
+                    <button class="level-btn human-btn" data-human="reflections">04 Reflect</button>
+                    <button class="level-btn human-btn" data-human="stereo">05 Stereo</button>
+                    <button class="level-btn human-btn ultra-human" data-human="ultra">06 Ultra</button>
+                    <button class="level-btn human-btn active" data-human="spectral">07 Spectral</button>
                 </div>
                 <p class="level-desc" id="human-desc">
-                    Micro-variations (le plus subtil)
+                    Spectral smoothing 0.05% (le plus subtil)
                 </p>
             </div>
 
@@ -383,7 +384,7 @@
         </div>
 
         <div class="footer">
-            <p>Suno Camouflage <span>&#8212;</span> + AI Humanizer</p>
+            <p>Suno Camouflage <span>&#8212;</span> + AI Humanizer CLEAN</p>
         </div>
     </div>
 
@@ -412,7 +413,7 @@
 
         let selectedFile = null;
         let selectedLevel = 'vocoder';
-        let selectedHuman = 'micro';
+        let selectedHuman = 'spectral';
 
         const descriptions = {
             timbre: '02 Timbre Transfer \u2014 Spectral morph / RAVE-DDSP si install\u00e9',
@@ -423,12 +424,13 @@
         };
 
         const humanDescriptions = {
-            tape: '01 Tape \u2014 Bruit de bande analogique (warmth)',
-            compress: '02 Compress \u2014 Compression analogique douce',
-            warmth: '03 Warmth \u2014 Saturation / tube warmth',
-            stereo: '04 Stereo \u2014 Imperfections st\u00e9r\u00e9o humaines',
-            ultra: '05 Ultra \u2014 Combo ULTRA HUMANIZER',
-            micro: '06 Micro \u2014 Micro-variations (le plus subtil)'
+            dither: '01 Dither \u2014 Shibata dithering (inaudible, -90dB)',
+            phase: '02 Phase \u2014 Phase jitter 0.08% (inaudible)',
+            gain: '03 Gain \u2014 Micro gain variations 0.03% (inaudible)',
+            reflections: '04 Reflect \u2014 Micro-r\u00e9flexions -66dB (inaudibles)',
+            stereo: '05 Stereo \u2014 Stereo micro-shift 0.1% (inaudible)',
+            ultra: '06 Ultra \u2014 ULTRA COMBO CLEAN (tout subliminal)',
+            spectral: '07 Spectral \u2014 Spectral smoothing 0.05% (le plus subtil)'
         };
 
         const progressHints = {
