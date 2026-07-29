@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Suno Camouflage — By Blitzø</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            border: 2px solid #e94560;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #e94560;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .upload-zone {
+            border: 3px dashed #e94560;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .upload-zone:hover {
+            background: rgba(233, 69, 96, 0.15);
+            transform: scale(1.02);
+        }
+
+        .upload-zone.dragover {
+            background: rgba(233, 69, 96, 0.25);
+            border-color: #ff6b6b;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-name {
+            color: #4ecca3;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .level-selector {
+            margin-bottom: 25px;
+        }
+
+        .level-selector label {
+            display: block;
+            margin-bottom: 10px;
+            color: #e94560;
+            font-weight: bold;
+        }
+
+        .level-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .level-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #333;
+            background: transparent;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .level-btn:hover {
+            border-color: #e94560;
+        }
+
+        .level-btn.active {
+            background: #e94560;
+            border-color: #e94560;
+            box-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
+        }
+
+        .level-desc {
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #888;
+            text-align: center;
+        }
+
+        .process-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .process-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(233, 69, 96, 0.4);
+        }
+
+        .process-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .progress.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(78, 204, 163, 0.1);
+            border: 2px solid #4ecca3;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .download-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #4ecca3;
+            color: #1a1a2e;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(78, 204, 163, 0.4);
+        }
+
+        .audio-preview {
+            width: 100%;
+            margin-top: 15px;
+            border-radius: 10px;
+        }
+
+        .error {
+            color: #ff6b6b;
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.8em;
+        }
+
+        .footer span {
+            color: #e94560;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SUNO CAMOUFLAGE</h1>
+        <p class="subtitle">By Blitz&#248; &#8212; The O is silent, dumbass!</p>
+
+        <div class="upload-zone" id="upload-zone">
+            <div style="font-size: 3em;">&#127925;</div>
+            <p>Glisse ton fichier audio ici</p>
+            <p style="color: #888; font-size: 0.9em;">ou clique pour s&#233;lectionner</p>
+            <p class="file-name" id="file-name"></p>
+            <input type="file" id="file-input" accept="audio/*">
+        </div>
+
+        <div class="level-selector">
+            <label>Niveau de Camouflage</label>
+            <div class="level-buttons">
+                <button class="level-btn" data-level="light">L&#233;ger</button>
+                <button class="level-btn active" data-level="medium">Moyen</button>
+                <button class="level-btn" data-level="strong">Fort</button>
+            </div>
+            <p class="level-desc" id="level-desc">
+                Pitch +4%, Tempo -2%, Reverb l&#233;ger &#8212; Bon &#233;quilibre qualit&#233;/d&#233;tection
+            </p>
+        </div>
+
+        <button class="process-btn" id="process-btn" disabled>
+            CAMOUFLER CE SON
+        </button>
+
+        <div class="progress" id="progress">
+            <div class="spinner"></div>
+            <p>Traitement en cours...</p>
+        </div>
+
+        <div class="result" id="result">
+            <p style="color: #4ecca3; font-size: 1.2em; font-weight: bold;">CAMOUFLAGE R&#201;USSI!</p>
+            <audio class="audio-preview" id="audio-preview" controls></audio>
+            <br>
+            <a href="#" class="download-btn" id="download-btn">T&#201;L&#201;CHARGER</a>
+        </div>
+
+        <p class="error" id="error"></p>
+
+        <div class="footer">
+            <p>Suno Camouflage <span>&#8212;</span> Audio processing tool</p>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileName = document.getElementById('file-name');
+        const processBtn = document.getElementById('process-btn');
+        const levelBtns = document.querySelectorAll('.level-btn');
+        const levelDesc = document.getElementById('level-desc');
+        const progress = document.getElementById('progress');
+        const result = document.getElementById('result');
+        const error = document.getElementById('error');
+        const downloadBtn = document.getElementById('download-btn');
+        const audioPreview = document.getElementById('audio-preview');
+
+        let selectedFile = null;
+        let selectedLevel = 'medium';
+
+        const descriptions = {
+            light: 'Pitch +2%, Tempo +1% \u2014 Qualit\u00e9 quasi intacte, risque de d\u00e9tection moyen',
+            medium: 'Pitch +4%, Tempo -2%, Reverb l\u00e9ger \u2014 Bon \u00e9quilibre qualit\u00e9/d\u00e9tection',
+            strong: 'Pitch +6%, Tempo -4%, Reverb fort \u2014 Qualit\u00e9 alt\u00e9r\u00e9e, d\u00e9tection minimale'
+        };
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+            if (!file.type.startsWith('audio/')) {
+                showError('Fichier audio uniquement!');
+                return;
+            }
+            selectedFile = file;
+            fileName.textContent = file.name + ' (' + (file.size/1024/1024).toFixed(2) + ' MB)';
+            processBtn.disabled = false;
+            error.style.display = 'none';
+        }
+
+        levelBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                levelBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedLevel = btn.dataset.level;
+                levelDesc.textContent = descriptions[selectedLevel];
+            });
+        });
+
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            progress.classList.add('active');
+            result.classList.remove('active');
+            error.style.display = 'none';
+            processBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+            formData.append('level', selectedLevel);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    audioPreview.src = '/preview/' + data.file_id;
+                    downloadBtn.href = data.download_url;
+                    downloadBtn.download = 'camoufl\u00e9_' + selectedFile.name;
+                    result.classList.add('active');
+                } else {
+                    showError(data.error || 'Erreur de traitement!');
+                }
+            } catch (err) {
+                showError('Erreur r\u00e9seau \u2014 v\u00e9rifie ta connexion!');
+            } finally {
+                progress.classList.remove('active');
+                processBtn.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            error.textContent = msg;
+            error.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
