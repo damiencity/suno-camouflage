@@ -26,7 +26,7 @@
             background: rgba(0, 0, 0, 0.7);
             border-radius: 20px;
             padding: 40px;
-            max-width: 600px;
+            max-width: 720px;
             width: 100%;
             border: 2px solid #e94560;
             box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
@@ -90,13 +90,31 @@
         }
 
         .level-buttons {
-            display: flex;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .level-btn.ultimate {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(255,107,107,0.2));
+        }
+
+        .level-btn.ultimate.active {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+        }
+
+        @media (max-width: 520px) {
+            .level-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .level-btn.ultimate {
+                grid-column: span 2;
+            }
         }
 
         .level-btn {
-            flex: 1;
-            padding: 12px;
+            padding: 10px 8px;
             border: 2px solid #333;
             background: transparent;
             color: #fff;
@@ -104,6 +122,7 @@
             cursor: pointer;
             transition: all 0.3s;
             font-weight: bold;
+            font-size: 0.85em;
         }
 
         .level-btn:hover {
@@ -243,11 +262,15 @@
         </div>
 
         <div class="level-selector">
-            <label>Niveau de Camouflage</label>
+            <label>Mode de Camouflage</label>
             <div class="level-buttons">
                 <button class="level-btn" data-level="light">L&#233;ger</button>
                 <button class="level-btn active" data-level="medium">Moyen</button>
                 <button class="level-btn" data-level="strong">Fort</button>
+                <button class="level-btn" data-level="spectral">Spectral</button>
+                <button class="level-btn" data-level="vocoder">Vocoder</button>
+                <button class="level-btn" data-level="segments">Segments</button>
+                <button class="level-btn ultimate" data-level="ultimate">NUCL&#201;AIRE</button>
             </div>
             <p class="level-desc" id="level-desc">
                 Pitch +4%, Tempo -2%, Reverb l&#233;ger &#8212; Bon &#233;quilibre qualit&#233;/d&#233;tection
@@ -294,10 +317,16 @@
         let selectedLevel = 'medium';
 
         const descriptions = {
-            light: 'Pitch +2%, Tempo +1% \u2014 Qualit\u00e9 quasi intacte, risque de d\u00e9tection moyen',
-            medium: 'Pitch +4%, Tempo -2%, Reverb l\u00e9ger \u2014 Bon \u00e9quilibre qualit\u00e9/d\u00e9tection',
-            strong: 'Pitch +6%, Tempo -4%, Reverb fort \u2014 Qualit\u00e9 alt\u00e9r\u00e9e, d\u00e9tection minimale'
+            light: 'Pitch +2%, Tempo +1% \u2014 Qualit\u00e9 quasi intacte',
+            medium: 'Pitch +4%, Tempo -2%, Reverb l\u00e9ger \u2014 Bon \u00e9quilibre',
+            strong: 'Pitch +6%, Tempo -4%, Reverb fort \u2014 D\u00e9tection minimale',
+            spectral: 'Morphing spectral FFT + EQ agressif \u2014 Alt\u00e8re la signature fr\u00e9quentielle',
+            vocoder: 'Phase vocoder (Rubberband) + stereo pan \u2014 Timbre d\u00e9cal\u00e9',
+            segments: 'D\u00e9coupe en 8 segments + fades + pitch \u2014 Structure modifi\u00e9e',
+            ultimate: 'Rubberband + spectral + bruit + compression \u2014 Mode nucl\u00e9aire'
         };
+
+        const longModes = new Set(['segments', 'ultimate']);
 
         uploadZone.addEventListener('click', () => fileInput.click());
 
@@ -354,8 +383,9 @@
             formData.append('level', selectedLevel);
 
             try {
+                const timeoutMs = longModes.has(selectedLevel) ? 360000 : 180000;
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 180000);
+                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
                 const response = await fetch('/upload', {
                     method: 'POST',
