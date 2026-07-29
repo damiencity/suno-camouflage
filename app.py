@@ -60,7 +60,7 @@ def camouflage_audio(input_path, output_path, level="medium"):
     ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode != 0:
             print(f"FFmpeg error: {result.stderr}")
             return False
@@ -68,6 +68,10 @@ def camouflage_audio(input_path, output_path, level="medium"):
     except Exception as e:
         print(f"Error: {e}")
         return False
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'})
 
 @app.route('/')
 def index():
