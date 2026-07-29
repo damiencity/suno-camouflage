@@ -346,21 +346,21 @@
 
         <div class="human-section">
             <h2>Rendre humain ce son</h2>
-            <p class="human-sub">AI Humanizer CLEAN &#8212; modifications subliminales (&lt; 0.1%, inaudibles)</p>
+            <p class="human-sub">AI Structural Humanizer &#8212; transformations structurelles du signal</p>
 
             <div class="level-selector">
                 <label>M&#233;thode d&#8217;humanisation</label>
                 <div class="level-buttons">
-                    <button class="level-btn human-btn" data-human="dither">01 Dither</button>
-                    <button class="level-btn human-btn" data-human="phase">02 Phase</button>
-                    <button class="level-btn human-btn" data-human="gain">03 Gain</button>
-                    <button class="level-btn human-btn" data-human="reflections">04 Reflect</button>
-                    <button class="level-btn human-btn" data-human="stereo">05 Stereo</button>
-                    <button class="level-btn human-btn ultra-human" data-human="ultra">06 Ultra</button>
-                    <button class="level-btn human-btn active" data-human="spectral">07 Spectral</button>
+                    <button class="level-btn human-btn active" data-human="resample">01 Resample</button>
+                    <button class="level-btn human-btn" data-human="convolution">02 Conv</button>
+                    <button class="level-btn human-btn" data-human="downsample">03 Down</button>
+                    <button class="level-btn human-btn" data-human="bandpass">04 Band</button>
+                    <button class="level-btn human-btn ultra-human" data-human="ultra">05 Ultra</button>
+                    <button class="level-btn human-btn" data-human="phase">06 Phase</button>
+                    <button class="level-btn human-btn" data-human="rubber">07 Rubber</button>
                 </div>
                 <p class="level-desc" id="human-desc">
-                    Spectral smoothing 0.05% (le plus subtil)
+                    Downsample + reconstruction structurelle
                 </p>
             </div>
 
@@ -384,7 +384,7 @@
         </div>
 
         <div class="footer">
-            <p>Suno Camouflage <span>&#8212;</span> + AI Humanizer CLEAN</p>
+            <p>Suno Camouflage <span>&#8212;</span> + AI Structural Humanizer</p>
         </div>
     </div>
 
@@ -413,7 +413,7 @@
 
         let selectedFile = null;
         let selectedLevel = 'vocoder';
-        let selectedHuman = 'spectral';
+        let selectedHuman = 'resample';
 
         const descriptions = {
             timbre: '02 Timbre Transfer \u2014 Spectral morph / RAVE-DDSP si install\u00e9',
@@ -424,14 +424,26 @@
         };
 
         const humanDescriptions = {
-            dither: '01 Dither \u2014 Shibata dithering (inaudible, -90dB)',
-            phase: '02 Phase \u2014 Phase jitter 0.08% (inaudible)',
-            gain: '03 Gain \u2014 Micro gain variations 0.03% (inaudible)',
-            reflections: '04 Reflect \u2014 Micro-r\u00e9flexions -66dB (inaudibles)',
-            stereo: '05 Stereo \u2014 Stereo micro-shift 0.1% (inaudible)',
-            ultra: '06 Ultra \u2014 ULTRA COMBO CLEAN (tout subliminal)',
-            spectral: '07 Spectral \u2014 Spectral smoothing 0.05% (le plus subtil)'
+            resample: '01 Resample \u2014 Downsample + reconstruction structurelle',
+            convolution: '02 Convolution \u2014 IR room simulation (afir)',
+            downsample: '03 Downsample \u2014 16-bit down + dither + upsample',
+            bandpass: '04 Bandpass \u2014 Filtre bande + reconstruction',
+            ultra: '05 Ultra \u2014 ULTRA STRUCTURAL COMBO (le plus puissant)',
+            phase: '06 Phase \u2014 Structural phase randomization',
+            rubber: '07 Rubber \u2014 Time stretch non-lin\u00e9aire (Rubberband/FFmpeg)'
         };
+
+        const humanProgressHints = {
+            resample: 'Resampling structurel...',
+            convolution: 'Convolution IR en cours...',
+            downsample: 'Downsample + upsample...',
+            bandpass: 'Bandpass + reconstruction...',
+            ultra: 'ULTRA STRUCTURAL COMBO (peut prendre 1-2 min)...',
+            phase: 'Phase randomization...',
+            rubber: 'Time stretch Rubberband...'
+        };
+
+        const longHumanModes = new Set(['ultra', 'convolution', 'downsample']);
 
         const progressHints = {
             timbre: 'Morphing de timbre...',
@@ -555,7 +567,7 @@
             if (!selectedFile) return;
 
             humanProgress.classList.add('active');
-            humanProgressText.textContent = 'Humanisation (' + selectedHuman + ')...';
+            humanProgressText.textContent = humanProgressHints[selectedHuman] || 'Humanisation en cours...';
             humanResult.classList.remove('active');
             humanError.style.display = 'none';
             humanizeBtn.disabled = true;
@@ -565,8 +577,9 @@
             formData.append('method', selectedHuman);
 
             try {
+                const timeoutMs = longHumanModes.has(selectedHuman) ? 600000 : 300000;
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 300000);
+                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
                 const response = await fetch('/humanize', {
                     method: 'POST',

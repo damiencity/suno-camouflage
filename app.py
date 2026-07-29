@@ -406,39 +406,40 @@ def process_audio(input_path, output_path, level, file_id):
 
 
 # ============================================================
-# AI HUMANIZER CLEAN — "Rendre humain ce son" (subliminal)
+# AI STRUCTURAL HUMANIZER — "Rendre humain ce son"
 # ============================================================
 
 HUMAN_OUTPUT_ARGS = ['-ar', '44100', '-ac', '2', '-b:a', '320k']
+SOXR = 'aresample=44100:resampler=soxr:precision=28'
 
 HUMAN_METHODS = {
-    'dither': {
-        'label': '01 Dither',
-        'desc': 'Shibata dithering (inaudible, -90dB)',
+    'resample': {
+        'label': '01 Resample',
+        'desc': 'Downsample + reconstruction structurelle',
     },
-    'phase': {
-        'label': '02 Phase',
-        'desc': 'Phase jitter 0.08% (inaudible)',
+    'convolution': {
+        'label': '02 Convolution',
+        'desc': 'Convolution IR (simule une vraie salle)',
     },
-    'gain': {
-        'label': '03 Gain',
-        'desc': 'Micro gain variations 0.03% (inaudible)',
+    'downsample': {
+        'label': '03 Downsample',
+        'desc': '16-bit downsample + dither + upsample',
     },
-    'reflections': {
-        'label': '04 Reflect',
-        'desc': 'Micro-réflexions -66dB (inaudibles)',
-    },
-    'stereo': {
-        'label': '05 Stereo',
-        'desc': 'Stereo micro-shift 0.1% (inaudible)',
+    'bandpass': {
+        'label': '04 Bandpass',
+        'desc': 'Bandpass filter + reconstruction',
     },
     'ultra': {
-        'label': '06 Ultra',
-        'desc': 'ULTRA COMBO CLEAN (tout subliminal)',
+        'label': '05 Ultra',
+        'desc': 'ULTRA STRUCTURAL COMBO',
     },
-    'spectral': {
-        'label': '07 Spectral',
-        'desc': 'Spectral smoothing 0.05% (le plus subtil)',
+    'phase': {
+        'label': '06 Phase',
+        'desc': 'Structural phase randomization',
+    },
+    'rubber': {
+        'label': '07 Rubber',
+        'desc': 'Non-linear time stretch (Rubberband)',
     },
 }
 
@@ -449,65 +450,149 @@ def humanize_simple(input_path, output_path, filter_complex):
     )
 
 
-def humanize_dither(input_path, output_path):
-    # adither absent on many FFmpeg builds → aresample dither
-    return humanize_simple(
-        input_path, output_path,
-        'aresample=44100:dither_method=triangular_hp'
-    )
+def humanize_resample(input_path, output_path, work_dir, file_id):
+    temp_low = os.path.join(work_dir, f'{file_id}_temp_low.mp3')
+    try:
+        if not run_ffmpeg(['-i', input_path, '-ar', '22050', '-ac', '1', '-b:a', '64k', temp_low]):
+            return False
+        return humanize_simple(temp_low, output_path, (
+            f'{SOXR},'
+            'aecho=0.3:0.2:50:0.1,'
+            'equalizer=f=100:t=h:w=200:g=1.5,'
+            'equalizer=f=8000:t=h:w=4000:g=-1,volume=1.05'
+        ))
+    finally:
+        cleanup_paths([temp_low])
 
 
-def humanize_phase(input_path, output_path):
-    return humanize_simple(
-        input_path, output_path,
-        "afftfilt=real='re+random(0)*0.0008':imag='im+random(0)*0.0008'"
-    )
+def humanize_wav_to_mp3(wav_path, mp3_path):
+    return run_ffmpeg(['-i', wav_path] + HUMAN_OUTPUT_ARGS + [mp3_path])
 
 
-def humanize_gain(input_path, output_path):
-    return humanize_simple(
-        input_path, output_path,
-        "volume='1+0.0003*sin(2*PI*t*0.7)+0.0002*sin(2*PI*t*1.1)':eval=frame"
-    )
+def humanize_convolution(input_path, output_path, work_dir, file_id):
+    ir_path = os.path.join(work_dir, f'{file_id}_ir.wav')
+    temp_wav = os.path.join(work_dir, f'{file_id}_conv.wav')
+    try:
+        if not run_ffmpeg([
+            '-f', 'lavfi', '-i', 'aevalsrc=0|0:d=0.1',
+            '-af', 'aecho=1.0:0.6:50:0.8,aecho=0.5:0.3:120:0.4,aecho=0.3:0.2:200:0.2',
+            ir_path
+        ]):
+            return False
+        if not run_ffmpeg([
+            '-i', input_path, '-i', ir_path,
+            '-filter_complex',
+            '[0:a][1:a]afir=dry=0.7:wet=0.3,equalizer=f=200:t=h:w=400:g=1,volume=1.1',
+            '-ar', '44100', '-ac', '2', temp_wav
+        ]):
+            return False
+        return humanize_wav_to_mp3(temp_wav, output_path)
+    finally:
+        cleanup_paths([ir_path, temp_wav])
 
 
-def humanize_reflections(input_path, output_path):
-    return humanize_simple(input_path, output_path, 'aecho=0.0005:0.0005:1:0.0005')
+def humanize_downsample(input_path, output_path, work_dir, file_id):
+    temp_16 = os.path.join(work_dir, f'{file_id}_temp_16bit.wav')
+    try:
+        if not run_ffmpeg(['-i', input_path, '-ar', '16000', '-sample_fmt', 's16', temp_16]):
+            return False
+        return humanize_simple(temp_16, output_path, (
+            f'{SOXR},'
+            'aresample=44100:dither_method=triangular_hp,'
+            'aecho=0.15:0.1:30:0.05,'
+            'equalizer=f=100:t=h:w=250:g=1.5,'
+            'equalizer=f=12000:t=h:w=4000:g=-1.5,volume=1.08'
+        ))
+    finally:
+        cleanup_paths([temp_16])
 
 
-def humanize_stereo(input_path, output_path):
-    return humanize_simple(input_path, output_path, 'stereotools=mlev=0.999:mpan=0.001')
-
-
-def humanize_ultra(input_path, output_path):
+def humanize_bandpass(input_path, output_path):
     return humanize_simple(input_path, output_path, (
-        "aresample=44100:dither_method=triangular_hp,"
-        "afftfilt=real='re+random(0)*0.0008':imag='im+random(0)*0.0008',"
-        "volume='1+0.0003*sin(2*PI*t*0.7)+0.0002*sin(2*PI*t*1.1)':eval=frame,"
-        "aecho=0.0005:0.0005:1:0.0005,"
-        "stereotools=mlev=0.999:mpan=0.001"
+        'highpass=f=40,lowpass=f=16000,'
+        f'{SOXR},'
+        'aecho=0.2:0.15:45:0.08,'
+        'equalizer=f=150:t=h:w=350:g=1.2,'
+        'equalizer=f=6000:t=h:w=3000:g=-0.8,volume=1.06'
     ))
 
 
-def humanize_spectral(input_path, output_path):
-    return humanize_simple(
-        input_path, output_path,
-        "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14*0.0005)'"
-        ":imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14*0.0005)'"
-    )
+def humanize_ultra(input_path, output_path, work_dir, file_id):
+    temp_down = os.path.join(work_dir, f'{file_id}_temp_down.wav')
+    ir2 = os.path.join(work_dir, f'{file_id}_ir2.wav')
+    temp_wav = os.path.join(work_dir, f'{file_id}_ultra.wav')
+    try:
+        if not run_ffmpeg([
+            '-i', input_path, '-ar', '22050', '-sample_fmt', 's16',
+            '-af', 'aresample=22050:dither_method=triangular',
+            temp_down
+        ]):
+            return False
+        if not run_ffmpeg([
+            '-f', 'lavfi', '-i', 'aevalsrc=0|0:d=0.1',
+            '-af', 'aecho=1.0:0.5:40:0.6,aecho=0.4:0.2:100:0.3,aecho=0.2:0.1:180:0.15',
+            ir2
+        ]):
+            return False
+        if not run_ffmpeg([
+            '-i', temp_down, '-i', ir2,
+            '-filter_complex',
+            '[0:a][1:a]afir=dry=0.75:wet=0.25,'
+            f'{SOXR},'
+            'aecho=0.1:0.08:25:0.03,'
+            'equalizer=f=80:t=h:w=200:g=2,'
+            'equalizer=f=3000:t=h:w=2000:g=-1,'
+            'equalizer=f=10000:t=h:w=4000:g=1,'
+            'acompressor=threshold=-20dB:ratio=2:attack=50:release=300,'
+            'alimiter=limit=0.98,volume=1.05',
+            '-ar', '44100', '-ac', '2', temp_wav
+        ], timeout=LONG_TIMEOUT):
+            return False
+        return humanize_wav_to_mp3(temp_wav, output_path)
+    finally:
+        cleanup_paths([temp_down, ir2, temp_wav])
 
 
-def process_humanize(input_path, output_path, method):
+def humanize_phase(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14*0.01)'"
+        ":imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14*0.01)',"
+        f'{SOXR},'
+        'aecho=0.12:0.08:35:0.04,'
+        'equalizer=f=120:t=h:w=300:g=1,'
+        'equalizer=f=5000:t=h:w=2500:g=-0.6,volume=1.03'
+    ))
+
+
+def humanize_rubber(input_path, output_path, work_dir, file_id):
+    temp_rubber = os.path.join(work_dir, f'{file_id}_temp_rubber.wav')
+    try:
+        if not rubberband_or_ffmpeg(input_path, temp_rubber, tempo=0.98, pitch=1.02):
+            return False
+        return humanize_simple(temp_rubber, output_path, (
+            f'{SOXR},'
+            'aecho=0.1:0.07:30:0.03,'
+            'equalizer=f=180:t=h:w=400:g=0.8,'
+            'equalizer=f=7000:t=h:w=3500:g=-0.5,volume=1.02'
+        ))
+    finally:
+        cleanup_paths([temp_rubber])
+
+
+def process_humanize(input_path, output_path, method, file_id):
+    work_dir = UPLOAD_FOLDER
     handlers = {
-        'dither': humanize_dither,
+        'resample': lambda i, o: humanize_resample(i, o, work_dir, file_id),
+        'convolution': lambda i, o: humanize_convolution(i, o, work_dir, file_id),
+        'downsample': lambda i, o: humanize_downsample(i, o, work_dir, file_id),
+        'bandpass': humanize_bandpass,
+        'ultra': lambda i, o: humanize_ultra(i, o, work_dir, file_id),
         'phase': humanize_phase,
-        'gain': humanize_gain,
-        'reflections': humanize_reflections,
-        'stereo': humanize_stereo,
-        'ultra': humanize_ultra,
-        'spectral': humanize_spectral,
+        'rubber': lambda i, o: humanize_rubber(i, o, work_dir, file_id),
     }
-    handler = handlers.get(method, humanize_spectral)
+    handler = handlers.get(method, humanize_resample)
+    if method in ('bandpass', 'phase'):
+        return handler(input_path, output_path)
     return handler(input_path, output_path)
 
 
@@ -583,7 +668,7 @@ def humanize():
         return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['audio']
-    method = request.form.get('method', 'spectral')
+    method = request.form.get('method', 'resample')
 
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
@@ -596,7 +681,7 @@ def humanize():
     output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_human.mp3')
 
     file.save(input_path)
-    success = process_humanize(input_path, output_path, method)
+    success = process_humanize(input_path, output_path, method, file_id)
 
     if os.path.exists(input_path):
         os.remove(input_path)
