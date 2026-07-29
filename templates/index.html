@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔥 Suno Camouflage — By Blitzø</title>
+    <title>Suno Camouflage — By Blitzø</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
@@ -26,7 +22,7 @@
             background: rgba(0, 0, 0, 0.7);
             border-radius: 20px;
             padding: 40px;
-            max-width: 820px;
+            max-width: 760px;
             width: 100%;
             border: 2px solid #e94560;
             box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
@@ -35,7 +31,7 @@
         h1 {
             text-align: center;
             color: #e94560;
-            font-size: 2.5em;
+            font-size: 2.4em;
             margin-bottom: 10px;
             text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
         }
@@ -68,9 +64,7 @@
             border-color: #ff6b6b;
         }
 
-        #file-input {
-            display: none;
-        }
+        #file-input { display: none; }
 
         .file-name {
             color: #4ecca3;
@@ -78,9 +72,7 @@
             font-weight: bold;
         }
 
-        .level-selector {
-            margin-bottom: 25px;
-        }
+        .level-selector { margin-bottom: 25px; }
 
         .level-selector label {
             display: block;
@@ -91,33 +83,16 @@
 
         .level-buttons {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px;
-            max-height: 220px;
-            overflow-y: auto;
-            padding-right: 4px;
         }
 
-        .level-btn.ultra {
-            grid-column: span 2;
-            background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(255,107,107,0.2));
-        }
-
-        .level-btn.ultra.active {
-            background: linear-gradient(135deg, #e94560, #ff6b6b);
-        }
-
-        @media (max-width: 620px) {
-            .level-buttons {
-                grid-template-columns: repeat(3, 1fr);
-            }
-            .level-btn.ultra {
-                grid-column: span 3;
-            }
+        @media (max-width: 560px) {
+            .level-buttons { grid-template-columns: 1fr 1fr; }
         }
 
         .level-btn {
-            padding: 10px 8px;
+            padding: 12px 8px;
             border: 2px solid #333;
             background: transparent;
             color: #fff;
@@ -128,9 +103,7 @@
             font-size: 0.85em;
         }
 
-        .level-btn:hover {
-            border-color: #e94560;
-        }
+        .level-btn:hover { border-color: #e94560; }
 
         .level-btn.active {
             background: #e94560;
@@ -138,11 +111,31 @@
             box-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
         }
 
+        .level-btn.nuclear {
+            grid-column: span 1;
+            background: linear-gradient(135deg, rgba(233,69,96,0.15), rgba(255,107,107,0.15));
+        }
+
+        .level-btn.nuclear.active {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+        }
+
+        .level-btn.salvation {
+            border-color: #4ecca3;
+        }
+
+        .level-btn.salvation.active {
+            background: #4ecca3;
+            border-color: #4ecca3;
+            color: #1a1a2e;
+        }
+
         .level-desc {
             margin-top: 10px;
             font-size: 0.85em;
             color: #888;
             text-align: center;
+            min-height: 2.4em;
         }
 
         .process-btn {
@@ -152,7 +145,7 @@
             border: none;
             border-radius: 10px;
             color: #fff;
-            font-size: 1.2em;
+            font-size: 1.15em;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
@@ -177,9 +170,7 @@
             text-align: center;
         }
 
-        .progress.active {
-            display: block;
-        }
+        .progress.active { display: block; }
 
         .spinner {
             width: 50px;
@@ -191,9 +182,7 @@
             margin: 0 auto 15px;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .result {
             display: none;
@@ -205,9 +194,7 @@
             text-align: center;
         }
 
-        .result.active {
-            display: block;
-        }
+        .result.active { display: block; }
 
         .download-btn {
             display: inline-block;
@@ -246,15 +233,13 @@
             font-size: 0.8em;
         }
 
-        .footer span {
-            color: #e94560;
-        }
+        .footer span { color: #e94560; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>SUNO CAMOUFLAGE</h1>
-        <p class="subtitle">By Blitz&#248; &#8212; The O is silent, dumbass!</p>
+        <p class="subtitle">By Blitz&#248; &#8212; Advanced methods only</p>
 
         <div class="upload-zone" id="upload-zone">
             <div style="font-size: 3em;">&#127925;</div>
@@ -265,26 +250,16 @@
         </div>
 
         <div class="level-selector">
-            <label>15 M&#233;thodes de Camouflage</label>
+            <label>M&#233;thodes avanc&#233;es</label>
             <div class="level-buttons">
-                <button class="level-btn" data-level="light">01 Light</button>
-                <button class="level-btn active" data-level="medium">02 Medium</button>
-                <button class="level-btn" data-level="strong">03 Strong</button>
-                <button class="level-btn" data-level="vocoder">04 Vocoder</button>
-                <button class="level-btn" data-level="blur">05 Blur</button>
-                <button class="level-btn" data-level="stereo">06 Stereo</button>
-                <button class="level-btn" data-level="compress">07 Compress</button>
-                <button class="level-btn" data-level="noise">08 Noise</button>
-                <button class="level-btn" data-level="reverse">09 Reverse</button>
-                <button class="level-btn" data-level="granular">10 Granular</button>
-                <button class="level-btn" data-level="vocal_shift">11 Vocal</button>
-                <button class="level-btn" data-level="extreme">12 Extreme</button>
-                <button class="level-btn" data-level="phase">13 Phase</button>
-                <button class="level-btn" data-level="bitcrush">14 Bitcrush</button>
-                <button class="level-btn ultra" data-level="ultra">15 ULTRA COMBO</button>
+                <button class="level-btn" data-level="timbre">02 Timbre</button>
+                <button class="level-btn nuclear" data-level="nuclear">03 Nuclear</button>
+                <button class="level-btn" data-level="nonlinear">04 Nonlinear</button>
+                <button class="level-btn active" data-level="vocoder">05 Vocoder</button>
+                <button class="level-btn salvation" data-level="salvation">Salvation</button>
             </div>
             <p class="level-desc" id="level-desc">
-                Pitch +5%, EQ mod&#233;r&#233;
+                Vocoder + synth&#232;se granulaire simul&#233;e
             </p>
         </div>
 
@@ -294,7 +269,7 @@
 
         <div class="progress" id="progress">
             <div class="spinner"></div>
-            <p>Traitement en cours...</p>
+            <p id="progress-text">Traitement en cours...</p>
         </div>
 
         <div class="result" id="result">
@@ -307,7 +282,7 @@
         <p class="error" id="error"></p>
 
         <div class="footer">
-            <p>Suno Camouflage <span>&#8212;</span> Audio processing tool</p>
+            <p>Suno Camouflage <span>&#8212;</span> Timbre / Nuclear / Nonlinear / Vocoder / Salvation</p>
         </div>
     </div>
 
@@ -319,33 +294,32 @@
         const levelBtns = document.querySelectorAll('.level-btn');
         const levelDesc = document.getElementById('level-desc');
         const progress = document.getElementById('progress');
+        const progressText = document.getElementById('progress-text');
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const downloadBtn = document.getElementById('download-btn');
         const audioPreview = document.getElementById('audio-preview');
 
         let selectedFile = null;
-        let selectedLevel = 'medium';
+        let selectedLevel = 'vocoder';
 
         const descriptions = {
-            light: '01 Light \u2014 Pitch +3%, Tempo -2%',
-            medium: '02 Medium \u2014 Pitch +5%, EQ mod\u00e9r\u00e9',
-            strong: '03 Strong \u2014 Pitch +6%, Reverb, EQ fort',
-            vocoder: '04 Vocoder \u2014 Formant shift, reverb l\u00e9ger',
-            blur: '05 Blur \u2014 Spectral blur l\u00e9ger + pitch',
-            stereo: '06 Stereo \u2014 Stereo widening + pitch',
-            compress: '07 Compress \u2014 Compression + limiting',
-            noise: '08 Noise \u2014 Bruit subtil + pitch',
-            reverse: '09 Reverse \u2014 Reverse reverb trick',
-            granular: '10 Granular \u2014 Granular synthesis',
-            vocal_shift: '11 Vocal Shift \u2014 Vocal isolation + pitch diff',
-            extreme: '12 Extreme \u2014 Pitch +7%, tempo -6%',
-            phase: '13 Phase \u2014 Phase vocoder style',
-            bitcrush: '14 Bitcrush \u2014 Bitcrush l\u00e9ger + EQ',
-            ultra: '15 ULTRA \u2014 COMBO ULTIME'
+            timbre: '02 Timbre Transfer \u2014 Spectral morph / RAVE-DDSP si install\u00e9',
+            nuclear: '03 Nuclear \u2014 Demucs (vocals/drums/bass/other) + remix \u2014 LONG',
+            nonlinear: '04 Nonlinear \u2014 Rubberband stretch + pitch + EQ',
+            vocoder: '05 Vocoder \u2014 Double echo + EQ granulaire + compression',
+            salvation: 'Salvation \u2014 Isolation voix/instru + pitch extr\u00eame (approx MIDI/AI)'
         };
 
-        const longModes = new Set(['blur', 'vocal_shift', 'ultra']);
+        const progressHints = {
+            timbre: 'Morphing de timbre...',
+            nuclear: 'S\u00e9paration Demucs + remix (peut prendre plusieurs minutes)...',
+            nonlinear: 'Time stretch non-lin\u00e9aire...',
+            vocoder: 'Vocoder + granulaire...',
+            salvation: 'Pipeline Salvation (approx)...'
+        };
+
+        const longModes = new Set(['nuclear', 'timbre', 'salvation']);
 
         uploadZone.addEventListener('click', () => fileInput.click());
 
@@ -375,7 +349,7 @@
                 return;
             }
             selectedFile = file;
-            fileName.textContent = file.name + ' (' + (file.size/1024/1024).toFixed(2) + ' MB)';
+            fileName.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
             processBtn.disabled = false;
             error.style.display = 'none';
         }
@@ -393,6 +367,7 @@
             if (!selectedFile) return;
 
             progress.classList.add('active');
+            progressText.textContent = progressHints[selectedLevel] || 'Traitement en cours...';
             result.classList.remove('active');
             error.style.display = 'none';
             processBtn.disabled = true;
@@ -402,7 +377,7 @@
             formData.append('level', selectedLevel);
 
             try {
-                const timeoutMs = longModes.has(selectedLevel) ? 360000 : 180000;
+                const timeoutMs = longModes.has(selectedLevel) ? 900000 : 300000;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -431,11 +406,11 @@
                 }
             } catch (err) {
                 if (err.name === 'AbortError') {
-                    showError('Timeout \u2014 fichier trop long ou serveur trop lent. R\u00e9essaie.');
+                    showError('Timeout \u2014 Nuclear/Demucs peut d\u00e9passer 15 min sur gros fichiers.');
                 } else if (window.location.protocol === 'file:') {
-                    showError('Ouvre l\'app via http://localhost:5000 (pas le fichier HTML directement).');
+                    showError('Ouvre l\'app via http://localhost:5000');
                 } else {
-                    showError('Serveur injoignable \u2014 lance python app.py puis ouvre http://localhost:5000');
+                    showError('Serveur injoignable \u2014 lance python app.py');
                 }
             } finally {
                 progress.classList.remove('active');
