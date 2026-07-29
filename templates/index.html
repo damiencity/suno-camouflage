@@ -346,21 +346,20 @@
 
         <div class="human-section">
             <h2>Rendre humain ce son</h2>
-            <p class="human-sub">AI Structural Humanizer &#8212; transformations structurelles du signal</p>
+            <p class="human-sub">AI Split-Band Humanizer &#8212; kick intact, hautes fr&#233;quences modifi&#233;es</p>
 
             <div class="level-selector">
                 <label>M&#233;thode d&#8217;humanisation</label>
                 <div class="level-buttons">
-                    <button class="level-btn human-btn active" data-human="resample">01 Resample</button>
-                    <button class="level-btn human-btn" data-human="convolution">02 Conv</button>
-                    <button class="level-btn human-btn" data-human="downsample">03 Down</button>
-                    <button class="level-btn human-btn" data-human="bandpass">04 Band</button>
-                    <button class="level-btn human-btn ultra-human" data-human="ultra">05 Ultra</button>
-                    <button class="level-btn human-btn" data-human="phase">06 Phase</button>
-                    <button class="level-btn human-btn" data-human="rubber">07 Rubber</button>
+                    <button class="level-btn human-btn active" data-human="2band">01 2-Band</button>
+                    <button class="level-btn human-btn" data-human="transients">02 Trans</button>
+                    <button class="level-btn human-btn" data-human="multiband">03 Multi</button>
+                    <button class="level-btn human-btn" data-human="sidechain">04 Kick</button>
+                    <button class="level-btn human-btn ultra-human" data-human="ultra_clean">05 Ultra</button>
+                    <button class="level-btn human-btn" data-human="eq_only">06 EQ</button>
                 </div>
                 <p class="level-desc" id="human-desc">
-                    Downsample + reconstruction structurelle
+                    Basses &lt;500Hz intactes, hautes modifi&#233;es
                 </p>
             </div>
 
@@ -384,7 +383,7 @@
         </div>
 
         <div class="footer">
-            <p>Suno Camouflage <span>&#8212;</span> + AI Structural Humanizer</p>
+            <p>Suno Camouflage <span>&#8212;</span> + AI Split-Band Humanizer</p>
         </div>
     </div>
 
@@ -413,7 +412,7 @@
 
         let selectedFile = null;
         let selectedLevel = 'vocoder';
-        let selectedHuman = 'resample';
+        let selectedHuman = '2band';
 
         const descriptions = {
             timbre: '02 Timbre Transfer \u2014 Spectral morph / RAVE-DDSP si install\u00e9',
@@ -424,26 +423,24 @@
         };
 
         const humanDescriptions = {
-            resample: '01 Resample \u2014 Downsample + reconstruction structurelle',
-            convolution: '02 Convolution \u2014 IR room simulation (afir)',
-            downsample: '03 Downsample \u2014 16-bit down + dither + upsample',
-            bandpass: '04 Bandpass \u2014 Filtre bande + reconstruction',
-            ultra: '05 Ultra \u2014 ULTRA STRUCTURAL COMBO (le plus puissant)',
-            phase: '06 Phase \u2014 Structural phase randomization',
-            rubber: '07 Rubber \u2014 Time stretch non-lin\u00e9aire (Rubberband/FFmpeg)'
+            '2band': '01 2-Band \u2014 Basses <500Hz intactes, hautes modifi\u00e9es',
+            transients: '02 Transients \u2014 Attack 5ms, transitoires intacts',
+            multiband: '03 Multiband \u2014 4 bandes s\u00e9par\u00e9es + remix',
+            sidechain: '04 Sidechain \u2014 Kick intact, reste modifi\u00e9',
+            ultra_clean: '05 Ultra Clean \u2014 3-band, kick parfait',
+            eq_only: '06 EQ Only \u2014 Subtle EQ, harmoniques modifi\u00e9es'
         };
 
         const humanProgressHints = {
-            resample: 'Resampling structurel...',
-            convolution: 'Convolution IR en cours...',
-            downsample: 'Downsample + upsample...',
-            bandpass: 'Bandpass + reconstruction...',
-            ultra: 'ULTRA STRUCTURAL COMBO (peut prendre 1-2 min)...',
-            phase: 'Phase randomization...',
-            rubber: 'Time stretch Rubberband...'
+            '2band': 'Split 2-band en cours...',
+            transients: 'Pr\u00e9servation des transitoires...',
+            multiband: 'Processing 4-band...',
+            sidechain: 'Sidechain kick + reste...',
+            ultra_clean: 'ULTRA CLEAN 3-band...',
+            eq_only: 'Subtle EQ...'
         };
 
-        const longHumanModes = new Set(['ultra', 'convolution', 'downsample']);
+        const longHumanModes = new Set(['multiband', 'sidechain', 'ultra_clean']);
 
         const progressHints = {
             timbre: 'Morphing de timbre...',

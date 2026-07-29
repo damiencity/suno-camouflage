@@ -406,40 +406,36 @@ def process_audio(input_path, output_path, level, file_id):
 
 
 # ============================================================
-# AI STRUCTURAL HUMANIZER — "Rendre humain ce son"
+# AI SPLIT-BAND HUMANIZER — "Rendre humain ce son"
 # ============================================================
 
 HUMAN_OUTPUT_ARGS = ['-ar', '44100', '-ac', '2', '-b:a', '320k']
-SOXR = 'aresample=44100:resampler=soxr:precision=28'
+LIMITER = 'alimiter=limit=0.98'
 
 HUMAN_METHODS = {
-    'resample': {
-        'label': '01 Resample',
-        'desc': 'Downsample + reconstruction structurelle',
+    '2band': {
+        'label': '01 2-Band',
+        'desc': 'Basses <500Hz intactes, hautes modifiées',
     },
-    'convolution': {
-        'label': '02 Convolution',
-        'desc': 'Convolution IR (simule une vraie salle)',
+    'transients': {
+        'label': '02 Transients',
+        'desc': 'Transitoires intacts (attack 5ms)',
     },
-    'downsample': {
-        'label': '03 Downsample',
-        'desc': '16-bit downsample + dither + upsample',
+    'multiband': {
+        'label': '03 Multiband',
+        'desc': '4-band multiband processing',
     },
-    'bandpass': {
-        'label': '04 Bandpass',
-        'desc': 'Bandpass filter + reconstruction',
+    'sidechain': {
+        'label': '04 Sidechain',
+        'desc': 'Kick intact, reste modifié',
     },
-    'ultra': {
-        'label': '05 Ultra',
-        'desc': 'ULTRA STRUCTURAL COMBO',
+    'ultra_clean': {
+        'label': '05 Ultra Clean',
+        'desc': '3-band, kick parfait',
     },
-    'phase': {
-        'label': '06 Phase',
-        'desc': 'Structural phase randomization',
-    },
-    'rubber': {
-        'label': '07 Rubber',
-        'desc': 'Non-linear time stretch (Rubberband)',
+    'eq_only': {
+        'label': '06 EQ Only',
+        'desc': 'Subtle EQ — kick intact, harmoniques modifiées',
     },
 }
 
@@ -450,148 +446,166 @@ def humanize_simple(input_path, output_path, filter_complex):
     )
 
 
-def humanize_resample(input_path, output_path, work_dir, file_id):
-    temp_low = os.path.join(work_dir, f'{file_id}_temp_low.mp3')
+def humanize_extract_wav(input_path, wav_path, af):
+    return run_ffmpeg(['-i', input_path, '-af', af, '-ar', '44100', '-ac', '2', wav_path])
+
+
+def humanize_2band(input_path, output_path, work_dir, file_id):
+    low = os.path.join(work_dir, f'{file_id}_low.wav')
+    high = os.path.join(work_dir, f'{file_id}_high.wav')
     try:
-        if not run_ffmpeg(['-i', input_path, '-ar', '22050', '-ac', '1', '-b:a', '64k', temp_low]):
+        if not humanize_extract_wav(input_path, low, 'lowpass=f=500'):
             return False
-        return humanize_simple(temp_low, output_path, (
-            f'{SOXR},'
-            'aecho=0.3:0.2:50:0.1,'
-            'equalizer=f=100:t=h:w=200:g=1.5,'
-            'equalizer=f=8000:t=h:w=4000:g=-1,volume=1.05'
-        ))
-    finally:
-        cleanup_paths([temp_low])
-
-
-def humanize_wav_to_mp3(wav_path, mp3_path):
-    return run_ffmpeg(['-i', wav_path] + HUMAN_OUTPUT_ARGS + [mp3_path])
-
-
-def humanize_convolution(input_path, output_path, work_dir, file_id):
-    ir_path = os.path.join(work_dir, f'{file_id}_ir.wav')
-    temp_wav = os.path.join(work_dir, f'{file_id}_conv.wav')
-    try:
-        if not run_ffmpeg([
-            '-f', 'lavfi', '-i', 'aevalsrc=0|0:d=0.1',
-            '-af', 'aecho=1.0:0.6:50:0.8,aecho=0.5:0.3:120:0.4,aecho=0.3:0.2:200:0.2',
-            ir_path
-        ]):
+        if not humanize_extract_wav(input_path, high, (
+            'highpass=f=500,asetrate=44100*1.03,aresample=44100,'
+            'aecho=0.2:0.15:60:0.1,'
+            'equalizer=f=1000:t=h:w=800:g=1.5,'
+            'equalizer=f=5000:t=h:w=3000:g=-2,'
+            'equalizer=f=12000:t=h:w=4000:g=1'
+        )):
             return False
-        if not run_ffmpeg([
-            '-i', input_path, '-i', ir_path,
+        return run_ffmpeg([
+            '-i', low, '-i', high,
             '-filter_complex',
-            '[0:a][1:a]afir=dry=0.7:wet=0.3,equalizer=f=200:t=h:w=400:g=1,volume=1.1',
-            '-ar', '44100', '-ac', '2', temp_wav
-        ]):
-            return False
-        return humanize_wav_to_mp3(temp_wav, output_path)
+            '[0:a]volume=1.0[l];[1:a]volume=1.0[h];[l][h]amix=inputs=2:duration=first,'
+            f'acompressor=threshold=-20dB:ratio=2:attack=30:release=200,{LIMITER}',
+        ] + HUMAN_OUTPUT_ARGS + [output_path])
     finally:
-        cleanup_paths([ir_path, temp_wav])
+        cleanup_paths([low, high])
 
 
-def humanize_downsample(input_path, output_path, work_dir, file_id):
-    temp_16 = os.path.join(work_dir, f'{file_id}_temp_16bit.wav')
-    try:
-        if not run_ffmpeg(['-i', input_path, '-ar', '16000', '-sample_fmt', 's16', temp_16]):
-            return False
-        return humanize_simple(temp_16, output_path, (
-            f'{SOXR},'
-            'aresample=44100:dither_method=triangular_hp,'
-            'aecho=0.15:0.1:30:0.05,'
-            'equalizer=f=100:t=h:w=250:g=1.5,'
-            'equalizer=f=12000:t=h:w=4000:g=-1.5,volume=1.08'
-        ))
-    finally:
-        cleanup_paths([temp_16])
-
-
-def humanize_bandpass(input_path, output_path):
+def humanize_transients(input_path, output_path):
     return humanize_simple(input_path, output_path, (
-        'highpass=f=40,lowpass=f=16000,'
-        f'{SOXR},'
-        'aecho=0.2:0.15:45:0.08,'
-        'equalizer=f=150:t=h:w=350:g=1.2,'
-        'equalizer=f=6000:t=h:w=3000:g=-0.8,volume=1.06'
+        'aecho=0.15:0.1:40:0.08,'
+        'equalizer=f=800:t=h:w=1000:g=2,'
+        'equalizer=f=4000:t=h:w=2500:g=-1.5,'
+        'equalizer=f=10000:t=h:w=4000:g=1.2,'
+        'stereotools=mlev=0.97:mpan=0.02,'
+        f'acompressor=threshold=-22dB:ratio=1.8:attack=5:release=150,{LIMITER},volume=1.03'
     ))
 
 
-def humanize_ultra(input_path, output_path, work_dir, file_id):
-    temp_down = os.path.join(work_dir, f'{file_id}_temp_down.wav')
-    ir2 = os.path.join(work_dir, f'{file_id}_ir2.wav')
-    temp_wav = os.path.join(work_dir, f'{file_id}_ultra.wav')
+def humanize_multiband(input_path, output_path, work_dir, file_id):
+    b1 = os.path.join(work_dir, f'{file_id}_b1.wav')
+    b2 = os.path.join(work_dir, f'{file_id}_b2.wav')
+    b3 = os.path.join(work_dir, f'{file_id}_b3.wav')
+    b4 = os.path.join(work_dir, f'{file_id}_b4.wav')
     try:
-        if not run_ffmpeg([
-            '-i', input_path, '-ar', '22050', '-sample_fmt', 's16',
-            '-af', 'aresample=22050:dither_method=triangular',
-            temp_down
-        ]):
+        if not humanize_extract_wav(input_path, b1, 'lowpass=f=100'):
             return False
-        if not run_ffmpeg([
-            '-f', 'lavfi', '-i', 'aevalsrc=0|0:d=0.1',
-            '-af', 'aecho=1.0:0.5:40:0.6,aecho=0.4:0.2:100:0.3,aecho=0.2:0.1:180:0.15',
-            ir2
-        ]):
+        if not humanize_extract_wav(input_path, b2, 'highpass=f=100,lowpass=f=500,equalizer=f=250:t=h:w=300:g=0.5'):
             return False
-        if not run_ffmpeg([
-            '-i', temp_down, '-i', ir2,
+        if not humanize_extract_wav(input_path, b3, (
+            'highpass=f=500,lowpass=f=4000,asetrate=44100*1.02,aresample=44100,'
+            'aecho=0.1:0.08:50:0.05,'
+            'equalizer=f=1500:t=h:w=1200:g=1,equalizer=f=3000:t=h:w=1500:g=-1'
+        )):
+            return False
+        if not humanize_extract_wav(input_path, b4, (
+            'highpass=f=4000,asetrate=44100*1.04,aresample=44100,'
+            'aecho=0.2:0.15:80:0.1,'
+            'equalizer=f=6000:t=h:w=3000:g=2,equalizer=f=12000:t=h:w=5000:g=-1.5'
+        )):
+            return False
+        return run_ffmpeg([
+            '-i', b1, '-i', b2, '-i', b3, '-i', b4,
             '-filter_complex',
-            '[0:a][1:a]afir=dry=0.75:wet=0.25,'
-            f'{SOXR},'
-            'aecho=0.1:0.08:25:0.03,'
-            'equalizer=f=80:t=h:w=200:g=2,'
-            'equalizer=f=3000:t=h:w=2000:g=-1,'
+            '[0:a]volume=1.0[s];[1:a]volume=1.0[b];[2:a]volume=1.0[m];[3:a]volume=0.9[h];'
+            '[s][b][m][h]amix=inputs=4:duration=first,'
+            f'acompressor=threshold=-18dB:ratio=2:attack=10:release=200,{LIMITER}',
+        ] + HUMAN_OUTPUT_ARGS + [output_path])
+    finally:
+        cleanup_paths([b1, b2, b3, b4])
+
+
+def humanize_sidechain(input_path, output_path, work_dir, file_id):
+    kick = os.path.join(work_dir, f'{file_id}_kick.wav')
+    rest = os.path.join(work_dir, f'{file_id}_rest.wav')
+    rest_mod = os.path.join(work_dir, f'{file_id}_rest_mod.wav')
+    try:
+        if not humanize_extract_wav(input_path, kick, 'lowpass=f=150,equalizer=f=60:t=h:w=80:g=3'):
+            return False
+        if not humanize_extract_wav(input_path, rest, 'highpass=f=120,equalizer=f=200:t=h:w=300:g=-2'):
+            return False
+        if not humanize_extract_wav(rest, rest_mod, (
+            'asetrate=44100*1.03,aresample=44100,aecho=0.15:0.1:55:0.07,'
+            'equalizer=f=1000:t=h:w=900:g=1.5,'
+            'equalizer=f=5000:t=h:w=3000:g=-1.5,'
             'equalizer=f=10000:t=h:w=4000:g=1,'
-            'acompressor=threshold=-20dB:ratio=2:attack=50:release=300,'
-            'alimiter=limit=0.98,volume=1.05',
-            '-ar', '44100', '-ac', '2', temp_wav
-        ], timeout=LONG_TIMEOUT):
+            'stereotools=mlev=0.96:mpan=0.03'
+        )):
             return False
-        return humanize_wav_to_mp3(temp_wav, output_path)
+        return run_ffmpeg([
+            '-i', kick, '-i', rest_mod,
+            '-filter_complex',
+            '[0:a]volume=1.3[k];[1:a]volume=1.0[r];[k][r]amix=inputs=2:duration=first,'
+            f'acompressor=threshold=-20dB:ratio=2:attack=5:release=150,{LIMITER}',
+        ] + HUMAN_OUTPUT_ARGS + [output_path])
     finally:
-        cleanup_paths([temp_down, ir2, temp_wav])
+        cleanup_paths([kick, rest, rest_mod])
 
 
-def humanize_phase(input_path, output_path):
-    return humanize_simple(input_path, output_path, (
-        "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14*0.01)'"
-        ":imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14*0.01)',"
-        f'{SOXR},'
-        'aecho=0.12:0.08:35:0.04,'
-        'equalizer=f=120:t=h:w=300:g=1,'
-        'equalizer=f=5000:t=h:w=2500:g=-0.6,volume=1.03'
-    ))
-
-
-def humanize_rubber(input_path, output_path, work_dir, file_id):
-    temp_rubber = os.path.join(work_dir, f'{file_id}_temp_rubber.wav')
+def humanize_ultra_clean(input_path, output_path, work_dir, file_id):
+    low5 = os.path.join(work_dir, f'{file_id}_low5.wav')
+    mid5 = os.path.join(work_dir, f'{file_id}_mid5.wav')
+    high5 = os.path.join(work_dir, f'{file_id}_high5.wav')
+    mid5_mod = os.path.join(work_dir, f'{file_id}_mid5_mod.wav')
+    high5_mod = os.path.join(work_dir, f'{file_id}_high5_mod.wav')
     try:
-        if not rubberband_or_ffmpeg(input_path, temp_rubber, tempo=0.98, pitch=1.02):
+        if not humanize_extract_wav(input_path, low5, 'lowpass=f=200'):
             return False
-        return humanize_simple(temp_rubber, output_path, (
-            f'{SOXR},'
-            'aecho=0.1:0.07:30:0.03,'
-            'equalizer=f=180:t=h:w=400:g=0.8,'
-            'equalizer=f=7000:t=h:w=3500:g=-0.5,volume=1.02'
-        ))
+        if not humanize_extract_wav(input_path, mid5, 'highpass=f=150,lowpass=f=3000'):
+            return False
+        if not humanize_extract_wav(input_path, high5, 'highpass=f=2500'):
+            return False
+        if not humanize_extract_wav(mid5, mid5_mod, (
+            'asetrate=44100*1.025,aresample=44100,aecho=0.12:0.08:45:0.05,'
+            'equalizer=f=1000:t=h:w=800:g=1,equalizer=f=2500:t=h:w=1500:g=-0.8'
+        )):
+            return False
+        if not humanize_extract_wav(high5, high5_mod, (
+            'asetrate=44100*1.04,aresample=44100,aecho=0.18:0.12:70:0.08,'
+            'equalizer=f=5000:t=h:w=3000:g=1.5,'
+            'equalizer=f=12000:t=h:w=5000:g=-1,'
+            'stereotools=mlev=0.95:mpan=0.04'
+        )):
+            return False
+        return run_ffmpeg([
+            '-i', low5, '-i', mid5_mod, '-i', high5_mod,
+            '-filter_complex',
+            '[0:a]volume=1.0[l];[1:a]volume=1.0[m];[2:a]volume=0.95[h];'
+            '[l][m][h]amix=inputs=3:duration=first,'
+            f'acompressor=threshold=-20dB:ratio=2:attack=8:release=180,{LIMITER},volume=1.02',
+        ] + HUMAN_OUTPUT_ARGS + [output_path])
     finally:
-        cleanup_paths([temp_rubber])
+        cleanup_paths([low5, mid5, high5, mid5_mod, high5_mod])
+
+
+def humanize_eq_only(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        'equalizer=f=60:t=h:w=100:g=0.3,'
+        'equalizer=f=500:t=h:w=400:g=1.5,'
+        'equalizer=f=2000:t=h:w=1500:g=0.8,'
+        'equalizer=f=6000:t=h:w=3000:g=-1.2,'
+        'equalizer=f=12000:t=h:w=5000:g=0.5,'
+        'stereotools=mlev=0.98:mpan=0.01,'
+        'acompressor=threshold=-24dB:ratio=1.5:attack=10:release=300,'
+        'alimiter=limit=0.99,volume=1.01'
+    ))
 
 
 def process_humanize(input_path, output_path, method, file_id):
     work_dir = UPLOAD_FOLDER
     handlers = {
-        'resample': lambda i, o: humanize_resample(i, o, work_dir, file_id),
-        'convolution': lambda i, o: humanize_convolution(i, o, work_dir, file_id),
-        'downsample': lambda i, o: humanize_downsample(i, o, work_dir, file_id),
-        'bandpass': humanize_bandpass,
-        'ultra': lambda i, o: humanize_ultra(i, o, work_dir, file_id),
-        'phase': humanize_phase,
-        'rubber': lambda i, o: humanize_rubber(i, o, work_dir, file_id),
+        '2band': lambda i, o: humanize_2band(i, o, work_dir, file_id),
+        'transients': humanize_transients,
+        'multiband': lambda i, o: humanize_multiband(i, o, work_dir, file_id),
+        'sidechain': lambda i, o: humanize_sidechain(i, o, work_dir, file_id),
+        'ultra_clean': lambda i, o: humanize_ultra_clean(i, o, work_dir, file_id),
+        'eq_only': humanize_eq_only,
     }
-    handler = handlers.get(method, humanize_resample)
-    if method in ('bandpass', 'phase'):
+    handler = handlers.get(method, humanize_2band)
+    if method in ('transients', 'eq_only'):
         return handler(input_path, output_path)
     return handler(input_path, output_path)
 
@@ -668,7 +682,7 @@ def humanize():
         return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['audio']
-    method = request.form.get('method', 'resample')
+    method = request.form.get('method', '2band')
 
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
