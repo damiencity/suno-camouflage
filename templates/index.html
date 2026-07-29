@@ -226,6 +226,67 @@
             display: none;
         }
 
+        .section-divider {
+            margin: 40px 0 30px;
+            border: none;
+            border-top: 1px solid rgba(78, 204, 163, 0.35);
+        }
+
+        .human-section h2 {
+            text-align: center;
+            color: #4ecca3;
+            font-size: 1.6em;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px rgba(78, 204, 163, 0.35);
+        }
+
+        .human-section .human-sub {
+            text-align: center;
+            color: #888;
+            font-size: 0.85em;
+            margin-bottom: 20px;
+        }
+
+        .human-btn {
+            border-color: #2a5a4a;
+        }
+
+        .human-btn:hover { border-color: #4ecca3; }
+
+        .human-btn.active {
+            background: #4ecca3;
+            border-color: #4ecca3;
+            color: #1a1a2e;
+            box-shadow: 0 0 15px rgba(78, 204, 163, 0.45);
+        }
+
+        .human-btn.ultra-human {
+            background: linear-gradient(135deg, rgba(78,204,163,0.15), rgba(78,204,163,0.05));
+        }
+
+        .human-btn.ultra-human.active {
+            background: linear-gradient(135deg, #4ecca3, #2ecc71);
+            color: #1a1a2e;
+        }
+
+        .process-btn.humanize {
+            background: linear-gradient(135deg, #4ecca3, #2ecc71);
+            color: #1a1a2e;
+        }
+
+        .process-btn.humanize:hover {
+            box-shadow: 0 10px 20px rgba(78, 204, 163, 0.35);
+        }
+
+        .process-btn.humanize:disabled {
+            background: #555;
+            color: #aaa;
+        }
+
+        .result.human-result {
+            border-color: #4ecca3;
+        }
+
         .footer {
             text-align: center;
             margin-top: 30px;
@@ -281,8 +342,48 @@
 
         <p class="error" id="error"></p>
 
+        <hr class="section-divider">
+
+        <div class="human-section">
+            <h2>Rendre humain ce son</h2>
+            <p class="human-sub">AI Humanizer &#8212; pour passer les d&#233;tecteurs IA (SubmitHub, etc.)</p>
+
+            <div class="level-selector">
+                <label>M&#233;thode d&#8217;humanisation</label>
+                <div class="level-buttons">
+                    <button class="level-btn human-btn" data-human="tape">01 Tape</button>
+                    <button class="level-btn human-btn" data-human="compress">02 Compress</button>
+                    <button class="level-btn human-btn" data-human="warmth">03 Warmth</button>
+                    <button class="level-btn human-btn" data-human="stereo">04 Stereo</button>
+                    <button class="level-btn human-btn ultra-human" data-human="ultra">05 Ultra</button>
+                    <button class="level-btn human-btn active" data-human="micro">06 Micro</button>
+                </div>
+                <p class="level-desc" id="human-desc">
+                    Micro-variations (le plus subtil)
+                </p>
+            </div>
+
+            <button class="process-btn humanize" id="humanize-btn" disabled>
+                RENDRE HUMAIN CE SON
+            </button>
+
+            <div class="progress" id="human-progress">
+                <div class="spinner" style="border-top-color:#4ecca3;"></div>
+                <p id="human-progress-text">Humanisation en cours...</p>
+            </div>
+
+            <div class="result human-result" id="human-result">
+                <p style="color: #4ecca3; font-size: 1.2em; font-weight: bold;">SON HUMANIS&#201;!</p>
+                <audio class="audio-preview" id="human-preview" controls></audio>
+                <br>
+                <a href="#" class="download-btn" id="human-download-btn">T&#201;L&#201;CHARGER</a>
+            </div>
+
+            <p class="error" id="human-error"></p>
+        </div>
+
         <div class="footer">
-            <p>Suno Camouflage <span>&#8212;</span> Timbre / Nuclear / Nonlinear / Vocoder / Salvation</p>
+            <p>Suno Camouflage <span>&#8212;</span> + AI Humanizer</p>
         </div>
     </div>
 
@@ -291,17 +392,27 @@
         const fileInput = document.getElementById('file-input');
         const fileName = document.getElementById('file-name');
         const processBtn = document.getElementById('process-btn');
-        const levelBtns = document.querySelectorAll('.level-btn');
+        const humanizeBtn = document.getElementById('humanize-btn');
+        const levelBtns = document.querySelectorAll('.level-btn:not(.human-btn)');
+        const humanBtns = document.querySelectorAll('.human-btn');
         const levelDesc = document.getElementById('level-desc');
+        const humanDesc = document.getElementById('human-desc');
         const progress = document.getElementById('progress');
         const progressText = document.getElementById('progress-text');
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const downloadBtn = document.getElementById('download-btn');
         const audioPreview = document.getElementById('audio-preview');
+        const humanProgress = document.getElementById('human-progress');
+        const humanProgressText = document.getElementById('human-progress-text');
+        const humanResult = document.getElementById('human-result');
+        const humanError = document.getElementById('human-error');
+        const humanDownloadBtn = document.getElementById('human-download-btn');
+        const humanPreview = document.getElementById('human-preview');
 
         let selectedFile = null;
         let selectedLevel = 'vocoder';
+        let selectedHuman = 'micro';
 
         const descriptions = {
             timbre: '02 Timbre Transfer \u2014 Spectral morph / RAVE-DDSP si install\u00e9',
@@ -309,6 +420,15 @@
             nonlinear: '04 Nonlinear \u2014 Rubberband stretch + pitch + EQ',
             vocoder: '05 Vocoder \u2014 Double echo + EQ granulaire + compression',
             salvation: 'Salvation \u2014 Isolation voix/instru + pitch extr\u00eame (approx MIDI/AI)'
+        };
+
+        const humanDescriptions = {
+            tape: '01 Tape \u2014 Bruit de bande analogique (warmth)',
+            compress: '02 Compress \u2014 Compression analogique douce',
+            warmth: '03 Warmth \u2014 Saturation / tube warmth',
+            stereo: '04 Stereo \u2014 Imperfections st\u00e9r\u00e9o humaines',
+            ultra: '05 Ultra \u2014 Combo ULTRA HUMANIZER',
+            micro: '06 Micro \u2014 Micro-variations (le plus subtil)'
         };
 
         const progressHints = {
@@ -351,7 +471,9 @@
             selectedFile = file;
             fileName.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
             processBtn.disabled = false;
+            humanizeBtn.disabled = false;
             error.style.display = 'none';
+            humanError.style.display = 'none';
         }
 
         levelBtns.forEach(btn => {
@@ -360,6 +482,15 @@
                 btn.classList.add('active');
                 selectedLevel = btn.dataset.level;
                 levelDesc.textContent = descriptions[selectedLevel];
+            });
+        });
+
+        humanBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                humanBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedHuman = btn.dataset.human;
+                humanDesc.textContent = humanDescriptions[selectedHuman];
             });
         });
 
@@ -418,9 +549,66 @@
             }
         });
 
+        humanizeBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            humanProgress.classList.add('active');
+            humanProgressText.textContent = 'Humanisation (' + selectedHuman + ')...';
+            humanResult.classList.remove('active');
+            humanError.style.display = 'none';
+            humanizeBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+            formData.append('method', selectedHuman);
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+                const response = await fetch('/humanize', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    throw new Error('R\u00e9ponse serveur invalide (HTTP ' + response.status + ')');
+                }
+
+                if (response.ok && data.success) {
+                    humanPreview.src = data.preview_url;
+                    humanDownloadBtn.href = data.download_url;
+                    humanDownloadBtn.download = 'human_' + selectedFile.name;
+                    humanResult.classList.add('active');
+                } else {
+                    showHumanError(data.error || 'Erreur humanize (HTTP ' + response.status + ')');
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    showHumanError('Timeout humanize.');
+                } else {
+                    showHumanError('Serveur injoignable \u2014 lance python app.py');
+                }
+            } finally {
+                humanProgress.classList.remove('active');
+                humanizeBtn.disabled = !selectedFile;
+            }
+        });
+
         function showError(msg) {
             error.textContent = msg;
             error.style.display = 'block';
+        }
+
+        function showHumanError(msg) {
+            humanError.textContent = msg;
+            humanError.style.display = 'block';
         }
     </script>
 </body>

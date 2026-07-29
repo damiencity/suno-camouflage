@@ -405,6 +405,140 @@ def process_audio(input_path, output_path, level, file_id):
     return handler(input_path, output_path, UPLOAD_FOLDER, file_id)
 
 
+# ============================================================
+# AI HUMANIZER — "Rendre humain ce son"
+# ============================================================
+
+HUMAN_OUTPUT_ARGS = ['-ar', '44100', '-ac', '2', '-b:a', '320k']
+
+HUMAN_METHODS = {
+    'tape': {
+        'label': '01 Tape',
+        'desc': 'Bruit de bande analogique (tape warmth)',
+    },
+    'compress': {
+        'label': '02 Compress',
+        'desc': 'Compression analogique douce',
+    },
+    'warmth': {
+        'label': '03 Warmth',
+        'desc': 'Saturation / tube warmth',
+    },
+    'stereo': {
+        'label': '04 Stereo',
+        'desc': 'Imperfection stéréo humaine',
+    },
+    'ultra': {
+        'label': '05 Ultra',
+        'desc': 'Combo ULTRA HUMANIZER',
+    },
+    'micro': {
+        'label': '06 Micro',
+        'desc': 'Micro-variations (le plus subtil)',
+    },
+}
+
+
+def humanize_simple(input_path, output_path, filter_complex):
+    return run_ffmpeg(
+        ['-i', input_path, '-af', filter_complex] + HUMAN_OUTPUT_ARGS + [output_path]
+    )
+
+
+def humanize_with_noise(input_path, output_path, noise_amp, weights, post_filters):
+    duration = get_duration(input_path)
+    return run_ffmpeg([
+        '-i', input_path,
+        '-f', 'lavfi', '-i', f'anoisesrc=d={duration}:a={noise_amp}:c=brown:r=44100',
+        '-filter_complex',
+        f'[0:a][1:a]amix=inputs=2:duration=first:weights={weights},{post_filters}',
+    ] + HUMAN_OUTPUT_ARGS + [output_path])
+
+
+def humanize_tape(input_path, output_path):
+    return humanize_with_noise(
+        input_path, output_path,
+        noise_amp='0.002',
+        weights='1 0.08',
+        post_filters=(
+            'aecho=0.3:0.2:50:0.1,'
+            'equalizer=f=60:t=h:w=100:g=1.5,'
+            'equalizer=f=12000:t=h:w=4000:g=-1'
+        ),
+    )
+
+
+def humanize_compress(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        'acompressor=threshold=-20dB:ratio=2.5:attack=30:release=200,'
+        'aecho=0.2:0.15:80:0.08,'
+        'equalizer=f=100:t=h:w=200:g=1,'
+        'equalizer=f=8000:t=h:w=3000:g=-0.5,'
+        'stereotools=mlev=0.95:mpan=0.05,volume=1.05'
+    ))
+
+
+def humanize_warmth(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        'aecho=0.25:0.2:40:0.1,'
+        'equalizer=f=250:t=h:w=500:g=1.2,'
+        'equalizer=f=3000:t=h:w=2000:g=-0.8,'
+        'equalizer=f=10000:t=h:w=4000:g=0.5,'
+        'acompressor=threshold=-18dB:ratio=2:attack=50:release=300,volume=1.08'
+    ))
+
+
+def humanize_stereo(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        'stereotools=mlev=0.92:mpan=0.08,'
+        'aecho=0.2:0.15:60:0.1,'
+        'equalizer=f=150:t=h:w=300:g=0.8,'
+        'equalizer=f=5000:t=h:w=2500:g=-0.6,volume=1.03'
+    ))
+
+
+def humanize_ultra(input_path, output_path):
+    return humanize_with_noise(
+        input_path, output_path,
+        noise_amp='0.0015',
+        weights='1 0.06',
+        post_filters=(
+            'aecho=0.2:0.15:45:0.08,aecho=0.15:0.1:120:0.05,'
+            'equalizer=f=80:t=h:w=150:g=1,'
+            'equalizer=f=250:t=h:w=400:g=1.5,'
+            'equalizer=f=3000:t=h:w=2000:g=-1,'
+            'equalizer=f=10000:t=h:w=4000:g=0.8,'
+            'stereotools=mlev=0.93:mpan=0.06,'
+            'acompressor=threshold=-22dB:ratio=2.2:attack=40:release=250,'
+            'alimiter=limit=0.98,volume=1.04'
+        ),
+    )
+
+
+def humanize_micro(input_path, output_path):
+    return humanize_simple(input_path, output_path, (
+        'aecho=0.1:0.08:25:0.03,aecho=0.08:0.06:70:0.02,'
+        'equalizer=f=200:t=h:w=350:g=0.6,'
+        'equalizer=f=4000:t=h:w=2000:g=-0.4,'
+        'equalizer=f=12000:t=h:w=3000:g=0.3,'
+        'acompressor=threshold=-25dB:ratio=1.8:attack=60:release=400,'
+        'stereotools=mlev=0.96:mpan=0.03,volume=1.02'
+    ))
+
+
+def process_humanize(input_path, output_path, method):
+    handlers = {
+        'tape': humanize_tape,
+        'compress': humanize_compress,
+        'warmth': humanize_warmth,
+        'stereo': humanize_stereo,
+        'ultra': humanize_ultra,
+        'micro': humanize_micro,
+    }
+    handler = handlers.get(method, humanize_micro)
+    return handler(input_path, output_path)
+
+
 @app.route('/health')
 def health():
     return jsonify({
@@ -417,6 +551,7 @@ def health():
             'ddsp_generate': has_tool('ddsp_generate'),
         },
         'modes': list(METHODS_META.keys()),
+        'human_modes': list(HUMAN_METHODS.keys()),
     })
 
 
@@ -470,6 +605,44 @@ def upload():
     })
 
 
+@app.route('/humanize', methods=['POST'])
+def humanize():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['audio']
+    method = request.form.get('method', 'micro')
+
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    if method not in HUMAN_METHODS:
+        return jsonify({'error': f'Unknown humanize method: {method}'}), 400
+
+    file_id = str(uuid.uuid4())[:8]
+    input_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_human_in.mp3')
+    output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_human.mp3')
+
+    file.save(input_path)
+    success = process_humanize(input_path, output_path, method)
+
+    if os.path.exists(input_path):
+        os.remove(input_path)
+
+    if not success:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return jsonify({'error': 'Humanize failed'}), 500
+
+    return jsonify({
+        'success': True,
+        'file_id': file_id,
+        'download_url': f'/download-human/{file_id}',
+        'preview_url': f'/preview-human/{file_id}',
+        'method': method,
+    })
+
+
 @app.route('/download/<file_id>')
 def download(file_id):
     output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_camouflé.mp3')
@@ -486,6 +659,27 @@ def download(file_id):
 @app.route('/preview/<file_id>')
 def preview(file_id):
     output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_camouflé.mp3')
+    if not os.path.exists(output_path):
+        return jsonify({'error': 'File not found'}), 404
+    return send_file(output_path, mimetype='audio/mpeg')
+
+
+@app.route('/download-human/<file_id>')
+def download_human(file_id):
+    output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_human.mp3')
+    if not os.path.exists(output_path):
+        return jsonify({'error': 'File not found'}), 404
+    return send_file(
+        output_path,
+        as_attachment=True,
+        download_name=f'human_{file_id}.mp3',
+        mimetype='audio/mpeg'
+    )
+
+
+@app.route('/preview-human/<file_id>')
+def preview_human(file_id):
+    output_path = os.path.join(UPLOAD_FOLDER, f'{file_id}_human.mp3')
     if not os.path.exists(output_path):
         return jsonify({'error': 'File not found'}), 404
     return send_file(output_path, mimetype='audio/mpeg')
