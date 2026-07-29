@@ -26,7 +26,7 @@
             background: rgba(0, 0, 0, 0.7);
             border-radius: 20px;
             padding: 40px;
-            max-width: 720px;
+            max-width: 820px;
             width: 100%;
             border: 2px solid #e94560;
             box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
@@ -91,25 +91,28 @@
 
         .level-buttons {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
-        .level-btn.ultimate {
+        .level-btn.ultra {
             grid-column: span 2;
             background: linear-gradient(135deg, rgba(233,69,96,0.2), rgba(255,107,107,0.2));
         }
 
-        .level-btn.ultimate.active {
+        .level-btn.ultra.active {
             background: linear-gradient(135deg, #e94560, #ff6b6b);
         }
 
-        @media (max-width: 520px) {
+        @media (max-width: 620px) {
             .level-buttons {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
-            .level-btn.ultimate {
-                grid-column: span 2;
+            .level-btn.ultra {
+                grid-column: span 3;
             }
         }
 
@@ -262,18 +265,26 @@
         </div>
 
         <div class="level-selector">
-            <label>Mode de Camouflage</label>
+            <label>15 M&#233;thodes de Camouflage</label>
             <div class="level-buttons">
-                <button class="level-btn" data-level="light">L&#233;ger</button>
-                <button class="level-btn active" data-level="medium">Moyen</button>
-                <button class="level-btn" data-level="strong">Fort</button>
-                <button class="level-btn" data-level="spectral">Spectral</button>
-                <button class="level-btn" data-level="vocoder">Vocoder</button>
-                <button class="level-btn" data-level="segments">Segments</button>
-                <button class="level-btn ultimate" data-level="ultimate">NUCL&#201;AIRE</button>
+                <button class="level-btn" data-level="light">01 Light</button>
+                <button class="level-btn active" data-level="medium">02 Medium</button>
+                <button class="level-btn" data-level="strong">03 Strong</button>
+                <button class="level-btn" data-level="vocoder">04 Vocoder</button>
+                <button class="level-btn" data-level="blur">05 Blur</button>
+                <button class="level-btn" data-level="stereo">06 Stereo</button>
+                <button class="level-btn" data-level="compress">07 Compress</button>
+                <button class="level-btn" data-level="noise">08 Noise</button>
+                <button class="level-btn" data-level="reverse">09 Reverse</button>
+                <button class="level-btn" data-level="granular">10 Granular</button>
+                <button class="level-btn" data-level="vocal_shift">11 Vocal</button>
+                <button class="level-btn" data-level="extreme">12 Extreme</button>
+                <button class="level-btn" data-level="phase">13 Phase</button>
+                <button class="level-btn" data-level="bitcrush">14 Bitcrush</button>
+                <button class="level-btn ultra" data-level="ultra">15 ULTRA COMBO</button>
             </div>
             <p class="level-desc" id="level-desc">
-                Pitch +4%, Tempo -2%, Reverb l&#233;ger &#8212; Bon &#233;quilibre qualit&#233;/d&#233;tection
+                Pitch +5%, EQ mod&#233;r&#233;
             </p>
         </div>
 
@@ -317,16 +328,24 @@
         let selectedLevel = 'medium';
 
         const descriptions = {
-            light: 'Pitch +2%, Tempo +1% \u2014 Qualit\u00e9 quasi intacte',
-            medium: 'Pitch +4%, Tempo -2%, Reverb l\u00e9ger \u2014 Bon \u00e9quilibre',
-            strong: 'Pitch +6%, Tempo -4%, Reverb fort \u2014 D\u00e9tection minimale',
-            spectral: 'Morphing spectral FFT + EQ agressif \u2014 Alt\u00e8re la signature fr\u00e9quentielle',
-            vocoder: 'Phase vocoder (Rubberband) + stereo pan \u2014 Timbre d\u00e9cal\u00e9',
-            segments: 'D\u00e9coupe en 8 segments + fades + pitch \u2014 Structure modifi\u00e9e',
-            ultimate: 'Rubberband + spectral + bruit + compression \u2014 Mode nucl\u00e9aire'
+            light: '01 Light \u2014 Pitch +3%, Tempo -2%',
+            medium: '02 Medium \u2014 Pitch +5%, EQ mod\u00e9r\u00e9',
+            strong: '03 Strong \u2014 Pitch +6%, Reverb, EQ fort',
+            vocoder: '04 Vocoder \u2014 Formant shift, reverb l\u00e9ger',
+            blur: '05 Blur \u2014 Spectral blur l\u00e9ger + pitch',
+            stereo: '06 Stereo \u2014 Stereo widening + pitch',
+            compress: '07 Compress \u2014 Compression + limiting',
+            noise: '08 Noise \u2014 Bruit subtil + pitch',
+            reverse: '09 Reverse \u2014 Reverse reverb trick',
+            granular: '10 Granular \u2014 Granular synthesis',
+            vocal_shift: '11 Vocal Shift \u2014 Vocal isolation + pitch diff',
+            extreme: '12 Extreme \u2014 Pitch +7%, tempo -6%',
+            phase: '13 Phase \u2014 Phase vocoder style',
+            bitcrush: '14 Bitcrush \u2014 Bitcrush l\u00e9ger + EQ',
+            ultra: '15 ULTRA \u2014 COMBO ULTIME'
         };
 
-        const longModes = new Set(['segments', 'ultimate']);
+        const longModes = new Set(['blur', 'vocal_shift', 'ultra']);
 
         uploadZone.addEventListener('click', () => fileInput.click());
 

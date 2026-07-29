@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, send_file, jsonify
 import os
 import subprocess
 import uuid
-import shutil
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
@@ -10,7 +9,75 @@ UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 FFMPEG_TIMEOUT = 180
-LONG_TIMEOUT = 300
+OUTPUT_ARGS = ['-ar', '44100', '-ac', '2', '-b:a', '192k']
+
+METHODS = {
+    'light': {
+        'label': '01 Light',
+        'desc': 'Pitch +3%, Tempo -2%',
+        'filter': 'asetrate=44100*1.03,aresample=44100,atempo=0.98',
+    },
+    'medium': {
+        'label': '02 Medium',
+        'desc': 'Pitch +5%, EQ modéré',
+        'filter': 'asetrate=44100*1.05,aresample=44100,atempo=0.97,equalizer=f=100:t=h:w=300:g=2,equalizer=f=3000:t=h:w=1500:g=-1.5',
+    },
+    'strong': {
+        'label': '03 Strong',
+        'desc': 'Pitch +6%, Reverb, EQ fort',
+        'filter': 'asetrate=44100*1.06,aresample=44100,atempo=0.96,aecho=0.5:0.3:800:0.2,equalizer=f=80:t=h:w=250:g=3,equalizer=f=4000:t=h:w=2000:g=-2',
+    },
+    'vocoder': {
+        'label': '04 Vocoder',
+        'desc': 'Formant shift, reverb léger',
+        'filter': 'asetrate=44100*1.04,aresample=44100,atempo=0.97,aecho=0.4:0.2:600:0.15,equalizer=f=150:t=h:w=400:g=2.5,equalizer=f=2500:t=h:w=1200:g=-2,equalizer=f=8000:t=h:w=3000:g=1.5',
+    },
+    'blur': {
+        'label': '05 Blur',
+        'desc': 'Spectral blur léger + pitch',
+        'filter': "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14*0.3)':imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14*0.3)',asetrate=44100*1.04,aresample=44100,atempo=0.98,equalizer=f=200:t=h:w=500:g=1.5",
+    },
+    'stereo': {
+        'label': '06 Stereo',
+        'desc': 'Stereo widening + pitch',
+        'filter': 'stereotools=mlev=0.8:mpan=0.2,asetrate=44100*1.05,aresample=44100,atempo=0.97,equalizer=f=120:t=h:w=350:g=2,equalizer=f=5000:t=h:w=2500:g=-2.5',
+    },
+    'compress': {
+        'label': '07 Compress',
+        'desc': 'Compression + limiting',
+        'filter': 'asetrate=44100*1.04,aresample=44100,atempo=0.98,acompressor=threshold=-18dB:ratio=3:attack=10:release=100,alimiter=level=0.9,equalizer=f=100:t=h:w=300:g=2',
+    },
+    'reverse': {
+        'label': '09 Reverse',
+        'desc': 'Reverse reverb trick',
+        'filter': 'areverse,aecho=0.8:0.6:500:0.4,areverse,asetrate=44100*1.03,aresample=44100,atempo=0.97,equalizer=f=150:t=h:w=400:g=2',
+    },
+    'granular': {
+        'label': '10 Granular',
+        'desc': 'Granular synthesis',
+        'filter': 'afade=t=in:st=0:d=0.05,afade=t=out:st=0.1:d=0.05,asetrate=44100*1.04,aresample=44100,atempo=0.96,aecho=0.3:0.2:400:0.1,equalizer=f=180:t=h:w=450:g=2.5',
+    },
+    'extreme': {
+        'label': '12 Extreme',
+        'desc': 'Pitch +7%, tempo -6%',
+        'filter': 'asetrate=44100*1.07,aresample=44100,atempo=0.94,aecho=0.6:0.4:700:0.3,equalizer=f=100:t=h:w=300:g=4,equalizer=f=5000:t=h:w=2500:g=-3,stereotools=mlev=0.7',
+    },
+    'phase': {
+        'label': '13 Phase',
+        'desc': 'Phase vocoder style',
+        'filter': 'asetrate=44100*1.03,aresample=44100,atempo=0.99,aecho=0.3:0.3:200:0.1,equalizer=f=500:t=h:w=800:g=-2,equalizer=f=2000:t=h:w=1500:g=1.5',
+    },
+    'bitcrush': {
+        'label': '14 Bitcrush',
+        'desc': 'Bitcrush léger + EQ',
+        'filter': 'asetrate=44100*1.05,aresample=44100,atempo=0.97,aecho=0.5:0.4:1000:0.25,equalizer=f=200:t=h:w=600:g=3,stereotools=mlev=0.75:mpan=0.15',
+    },
+    'ultra': {
+        'label': '15 Ultra',
+        'desc': 'COMBO ULTIME',
+        'filter': 'asetrate=44100*1.05,aresample=44100,atempo=0.96,aecho=0.4:0.3:500:0.2,equalizer=f=100:t=h:w=300:g=3,equalizer=f=3000:t=h:w=2000:g=-2,equalizer=f=8000:t=h:w=4000:g=2,stereotools=mlev=0.8:mpan=0.1,acompressor=threshold=-20dB:ratio=2.5:attack=15:release=150',
+    },
+}
 
 
 def run_ffmpeg(args, timeout=FFMPEG_TIMEOUT):
@@ -18,16 +85,12 @@ def run_ffmpeg(args, timeout=FFMPEG_TIMEOUT):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if result.returncode != 0:
-            print(f"FFmpeg error: {result.stderr}")
+            print(f"FFmpeg error: {result.stderr[:300]}")
             return False
         return True
     except Exception as e:
         print(f"Error: {e}")
         return False
-
-
-def has_rubberband():
-    return shutil.which('rubberband') is not None
 
 
 def get_duration(input_path):
@@ -43,228 +106,74 @@ def get_duration(input_path):
     return float(result.stdout.strip())
 
 
-def output_args(output_path):
-    return ['-ar', '44100', '-ac', '2', '-b:a', '192k', output_path]
+def apply_filter(input_path, output_path, filter_complex):
+    return run_ffmpeg(['-i', input_path, '-af', filter_complex] + OUTPUT_ARGS + [output_path])
 
 
-def pitch_shift_fallback(input_path, output_path, tempo, pitch):
-    filter_complex = (
-        f"asetrate=44100*{pitch},aresample=44100,"
-        f"atempo={tempo}"
-    )
-    return run_ffmpeg(['-i', input_path, '-af', filter_complex] + output_args(output_path))
-
-
-def rubberband_process(input_path, output_path, tempo, pitch, crispness=6):
-    if not has_rubberband():
-        return pitch_shift_fallback(input_path, output_path, tempo, pitch)
-
-    cmd = [
-        'rubberband',
-        '-t', str(tempo),
-        '-p', str(pitch),
-        '-c', str(crispness),
-        input_path,
-        output_path
-    ]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=FFMPEG_TIMEOUT)
-        if result.returncode != 0:
-            print(f"Rubberband error: {result.stderr}")
-            return pitch_shift_fallback(input_path, output_path, tempo, pitch)
-        return True
-    except Exception as e:
-        print(f"Rubberband error: {e}")
-        return pitch_shift_fallback(input_path, output_path, tempo, pitch)
-
-
-def camouflage_basic(input_path, output_path, level="medium"):
-    presets = {
-        "light": {
-            "pitch": 1.02, "tempo": 1.01,
-            "reverb_delay": 800, "reverb_decay": 0.2,
-            "eq_low": 1, "eq_high": -0.5
-        },
-        "medium": {
-            "pitch": 1.04, "tempo": 0.98,
-            "reverb_delay": 1200, "reverb_decay": 0.3,
-            "eq_low": 2, "eq_high": -1
-        },
-        "strong": {
-            "pitch": 1.06, "tempo": 0.96,
-            "reverb_delay": 1500, "reverb_decay": 0.4,
-            "eq_low": 3, "eq_high": -2
-        }
-    }
-    p = presets.get(level, presets["medium"])
-
-    filter_complex = (
-        f"asetrate=44100*{p['pitch']},aresample=44100,"
-        f"atempo={p['tempo']},"
-        f"aecho=0.6:0.3:{p['reverb_delay']}:{p['reverb_decay']},"
-        f"equalizer=f=100:t=h:w=200:g={p['eq_low']},"
-        f"equalizer=f=5000:t=h:w=1000:g={p['eq_high']},"
-        f"anlmdn=s=1:p=0.002:r=0.002"
-    )
-    return run_ffmpeg(['-i', input_path, '-af', filter_complex] + output_args(output_path))
-
-
-def camouflage_spectral(input_path, output_path):
-    filter_complex = (
-        "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14)'"
-        ":imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14)',"
-        "asetrate=44100*1.05,aresample=44100,"
-        "atempo=0.97,"
-        "aecho=0.5:0.4:800:0.3,"
-        "equalizer=f=80:t=h:w=300:g=4,"
-        "equalizer=f=400:t=h:w=500:g=-3,"
-        "equalizer=f=2000:t=h:w=1000:g=2,"
-        "equalizer=f=8000:t=h:w=3000:g=-4,"
-        "stereotools=mlev=0.8,"
-        "anlmdn=s=2:p=0.005:r=0.005,"
-        "volume=1.2"
-    )
-    return run_ffmpeg(['-i', input_path, '-af', filter_complex] + output_args(output_path))
-
-
-def camouflage_vocoder(input_path, output_path, work_dir, file_id):
-    step1 = os.path.join(work_dir, f"{file_id}_voc_step1.mp3")
-    if not rubberband_process(input_path, step1, tempo=0.95, pitch=1.08):
-        return False
-
-    filter_complex = (
-        "aecho=0.6:0.5:600:0.4,"
-        "equalizer=f=100:t=h:w=400:g=5,"
-        "equalizer=f=3000:t=h:w=2000:g=-5,"
-        "stereotools=mlev=0.7:mpan=0.3,"
-        "volume=1.1"
-    )
-    ok = run_ffmpeg(['-i', step1, '-af', filter_complex] + output_args(output_path))
-    if os.path.exists(step1):
-        os.remove(step1)
-    return ok
-
-
-def camouflage_segments(input_path, output_path, work_dir, file_id, num_segments=8):
+def method_noise(input_path, output_path):
     duration = get_duration(input_path)
-    num_segments = min(num_segments, max(2, int(duration / 3)))
-    segment_duration = duration / num_segments
-    segments = []
-    transitions = []
-    fade_d = min(0.5, segment_duration / 3)
-    fade_out_start = max(segment_duration - fade_d, 0)
+    return run_ffmpeg([
+        '-f', 'lavfi', '-i', f'anoisesrc=d={duration}:a=0.001:c=pink:r=44100',
+        '-i', input_path,
+        '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:weights=0.05 1,asetrate=44100*1.04,aresample=44100,atempo=0.98',
+    ] + OUTPUT_ARGS + [output_path])
+
+
+def method_vocal_shift(input_path, output_path, work_dir, file_id):
+    temp_v = os.path.join(work_dir, f'{file_id}_temp_vocals.mp3')
+    temp_i = os.path.join(work_dir, f'{file_id}_temp_instru.mp3')
 
     try:
-        for i in range(num_segments):
-            start = i * segment_duration
-            seg_file = os.path.join(work_dir, f"{file_id}_seg_{i}.mp3")
-            if not run_ffmpeg([
-                '-i', input_path,
-                '-ss', str(start), '-t', str(segment_duration),
-                '-af', 'volume=1.1',
-                seg_file
-            ]):
-                return False
-            segments.append(seg_file)
+        if not run_ffmpeg([
+            '-i', input_path,
+            '-af', 'highpass=f=250,lowpass=f=4000,asetrate=44100*1.08,aresample=44100,volume=0.7',
+        ] + OUTPUT_ARGS + [temp_v]):
+            return False
 
-        concat_list = os.path.join(work_dir, f"{file_id}_concat.txt")
-
-        with open(concat_list, 'w', encoding='utf-8') as f:
-            for i, seg in enumerate(segments):
-                transition = os.path.join(work_dir, f"{file_id}_trans_{i}.mp3")
-                if not run_ffmpeg([
-                    '-i', seg,
-                    '-af', f'afade=t=in:ss=0:d={fade_d},afade=t=out:st={fade_out_start}:d={fade_d}',
-                    transition
-                ]):
-                    return False
-                transitions.append(transition)
-                abs_path = os.path.abspath(transition).replace('\\', '/')
-                f.write(f"file '{abs_path}'\n")
+        if not run_ffmpeg([
+            '-i', input_path,
+            '-af', 'equalizer=f=3000:t=h:w=2000:g=3,asetrate=44100*1.02,aresample=44100,volume=1.3',
+        ] + OUTPUT_ARGS + [temp_i]):
+            return False
 
         return run_ffmpeg([
-            '-f', 'concat', '-safe', '0', '-i', concat_list,
-            '-af', 'asetrate=44100*1.03,aresample=44100,atempo=0.98'
-        ] + output_args(output_path), timeout=LONG_TIMEOUT)
+            '-i', temp_v, '-i', temp_i,
+            '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first,volume=1.2',
+        ] + OUTPUT_ARGS + [output_path])
     finally:
-        for path in segments + transitions:
-            if os.path.exists(path):
-                os.remove(path)
-        concat_path = os.path.join(work_dir, f"{file_id}_concat.txt")
-        if os.path.exists(concat_path):
-            os.remove(concat_path)
-
-
-def camouflage_ultimate(input_path, output_path, work_dir, file_id):
-    step1 = os.path.join(work_dir, f"{file_id}_ult_step1.mp3")
-    step2 = os.path.join(work_dir, f"{file_id}_ult_step2.mp3")
-    step3 = os.path.join(work_dir, f"{file_id}_ult_step3.mp3")
-    temp_files = [step1, step2, step3]
-
-    try:
-        if not rubberband_process(input_path, step1, tempo=0.94, pitch=1.06):
-            return False
-
-        filter_step2 = (
-            "afftfilt=real='hypot(re,im)*cos((random(0)*2-1)*2*3.14)'"
-            ":imag='hypot(re,im)*sin((random(0)*2-1)*2*3.14)',"
-            "aecho=0.7:0.6:500:0.5,"
-            "equalizer=f=60:t=h:w=200:g=6,"
-            "equalizer=f=250:t=h:w=300:g=-4,"
-            "equalizer=f=1000:t=h:w=800:g=3,"
-            "equalizer=f=4000:t=h:w=2000:g=-6,"
-            "equalizer=f=12000:t=h:w=4000:g=4,"
-            "stereotools=mlev=0.6:mpan=0.4,"
-            "anlmdn=s=3:p=0.008:r=0.008,"
-            "volume=1.3"
-        )
-        if not run_ffmpeg(['-i', step1, '-af', filter_step2] + output_args(step2), timeout=LONG_TIMEOUT):
-            return False
-
-        noise_duration = get_duration(step2)
-        if not run_ffmpeg([
-            '-i', step2,
-            '-f', 'lavfi', '-i', f'anoisesrc=d={noise_duration}:c=brown:a=0.003',
-            '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:weights=0.15 1',
-        ] + output_args(step3), timeout=LONG_TIMEOUT):
-            return False
-
-        filter_step4 = (
-            "acompressor=threshold=-20dB:ratio=4:attack=5:release=100,"
-            "alimiter=level=1,"
-            "volume=0.9"
-        )
-        return run_ffmpeg(['-i', step3, '-af', filter_step4] + output_args(output_path), timeout=LONG_TIMEOUT)
-    finally:
-        for path in temp_files:
+        for path in (temp_v, temp_i):
             if os.path.exists(path):
                 os.remove(path)
 
 
 def process_audio(input_path, output_path, level, file_id):
-    work_dir = UPLOAD_FOLDER
+    if level == 'noise':
+        return method_noise(input_path, output_path)
+    if level == 'vocal_shift':
+        return method_vocal_shift(input_path, output_path, UPLOAD_FOLDER, file_id)
 
-    if level in ('light', 'medium', 'strong'):
-        return camouflage_basic(input_path, output_path, level)
-    if level == 'spectral':
-        return camouflage_spectral(input_path, output_path)
-    if level == 'vocoder':
-        return camouflage_vocoder(input_path, output_path, work_dir, file_id)
-    if level == 'segments':
-        return camouflage_segments(input_path, output_path, work_dir, file_id)
-    if level == 'ultimate':
-        return camouflage_ultimate(input_path, output_path, work_dir, file_id)
-
-    return camouflage_basic(input_path, output_path, 'medium')
+    method = METHODS.get(level)
+    if not method:
+        method = METHODS['medium']
+    return apply_filter(input_path, output_path, method['filter'])
 
 
 @app.route('/health')
 def health():
     return jsonify({
         'status': 'ok',
-        'rubberband': has_rubberband(),
-        'modes': ['light', 'medium', 'strong', 'spectral', 'vocoder', 'segments', 'ultimate']
+        'modes': list(METHODS.keys()) + ['noise', 'vocal_shift'],
     })
+
+
+@app.route('/methods')
+def list_methods():
+    items = []
+    for key, meta in METHODS.items():
+        items.append({'id': key, 'label': meta['label'], 'desc': meta['desc']})
+    items.append({'id': 'noise', 'label': '08 Noise', 'desc': 'Bruit subtil + pitch'})
+    items.append({'id': 'vocal_shift', 'label': '11 Vocal Shift', 'desc': 'Vocal isolation + pitch diff'})
+    return jsonify(items)
 
 
 @app.route('/')
@@ -288,7 +197,6 @@ def upload():
     output_path = os.path.join(UPLOAD_FOLDER, f"{file_id}_camouflé.mp3")
 
     file.save(input_path)
-
     success = process_audio(input_path, output_path, level, file_id)
 
     if os.path.exists(input_path):
@@ -303,7 +211,7 @@ def upload():
         'success': True,
         'file_id': file_id,
         'download_url': f'/download/{file_id}',
-        'mode': level
+        'mode': level,
     })
 
 
